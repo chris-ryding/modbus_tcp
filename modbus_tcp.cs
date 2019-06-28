@@ -607,4 +607,117 @@ namespace ModbusTCP {
             return ERR_NO_ERROR;
         }
     }
+
+
+    /// <summary>
+    /// A class to provide test hooks for a MODBUS/TCP client. It creates
+    /// a local socket for the client to connect to and then returns preset
+    /// responses to received commands.
+    /// </summary>
+    public class ModbusTestEndpoint
+    {
+        protected Socket sck = null;
+        protected Socket client = null;
+
+        protected int serverPortNum = ModbusTCP.MODBUS_TCP_PORT;
+        public int TcpPortNum { get { return serverPortNum; } }
+
+        protected byte[] txBuf;
+        /// <summary>
+        /// Data which is/will be sent as a response to the next received
+        /// client command.
+        /// </summary>
+        public byte[] DataToSend
+        {
+            get { return txBuf; }
+            set { txBuf = value; }
+        }
+
+        protected byte[] rxBuf = new byte[256];
+        /// <summary>
+        /// The last command received from the connected client.
+        /// </summary>
+        public byte[] LastCmdRcvd { get { return rxBuf; } }
+
+        protected int bytesRcvd;
+        /// <summary>
+        /// The number of bytes received in the last command.
+        /// </summary>
+        public int RxByteCount
+        {
+            get
+            {
+                return bytesRcvd;
+            }
+        }
+
+
+        public ModbusTestEndpoint() { }
+        ~ModbusTestEndpoint()
+        {
+            Close();
+        }
+
+        /// <summary>
+        /// Opens the local server port and starts listening for connections.
+        /// </summary>
+        /// <param name="portNum">The local TCP port number on which to listen.</param>
+        public void Open( int portNum )
+        {
+            if( portNum > 0 && portNum <= 0xFFFF )
+                // valid TCP ports are 1 - 65535
+                serverPortNum = portNum;
+
+            sck = new Socket( AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp );
+            sck.Blocking = true;
+
+            sck.Bind( new System.Net.IPEndPoint( IPAddress.Any, serverPortNum ) );
+            sck.Listen( 1 );
+
+            Thread listener = new Thread( HandleCommands );
+            listener.Start();
+        }
+
+        public void Close()
+        {
+            if( client != null )
+                client.Close();
+
+            if( sck != null )
+                sck.Close();
+        }
+
+        /// <summary>
+        /// Sets the data which is send back when a command is received from
+        /// the connected client.
+        /// </summary>
+        /// <param name="RspToSend"></param>
+        public void SetNextResponse( byte[] RspToSend )
+        {
+            txBuf = RspToSend;
+        }
+
+        protected void HandleCommands( object dummy )
+        {
+            try {
+                client = sck.Accept();
+            }
+            catch {
+                // Accept may fail if the test is aborted before a connection
+                // is received, so just bail out.
+                return;
+            }
+
+            try {
+                while( client != null && client.Connected ) {
+                    bytesRcvd = client.Receive( rxBuf );
+                    client.Send( txBuf );
+                }
+            }
+            catch {
+                // failure indicates the connection is closed so exit out
+                return;
+            }
+        }
+    }
 }
