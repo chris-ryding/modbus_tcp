@@ -2,7 +2,7 @@
 using System.Text;
 using System.Collections.Generic;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using EagleHW;
+using ModbusTCP;
 
 namespace Tests
 {
@@ -30,7 +30,7 @@ namespace Tests
             }
         }
 
-        public ModbusTCP TestClient;
+        public Controller TestClient;
         public ModbusTestEndpoint TestServer;
 
         #region Additional test attributes
@@ -58,7 +58,7 @@ namespace Tests
         [TestInitialize()]
         public void EstablishClientServer()
         {
-            TestClient = new ModbusTCP();
+            TestClient = new Controller();
             Assert.IsNotNull( TestClient );
 
             TestServer = new ModbusTestEndpoint();
